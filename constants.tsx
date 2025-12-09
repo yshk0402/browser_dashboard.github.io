@@ -89,7 +89,7 @@ export const GAS_SCRIPT_CODE = `/**
 const RSS_FEEDS = [
   { url: 'https://zenn.dev/feed', source: 'Zenn', category: 'Tech' },
   { url: 'https://qiita.com/popular-items/feed', source: 'Qiita', category: 'Tech' },
-  { url: 'https://feeds.feedburner.com/hatena/b/hotentry/it', source: 'Hatena', category: 'General' },
+  { url: 'https://b.hatena.ne.jp/hotentry/it.rss', source: 'Hatena', category: 'General' },
   { url: 'https://www.publickey1.jp/atom.xml', source: 'Publickey', category: 'Infrastructure' }
 ];
 
