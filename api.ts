@@ -55,42 +55,83 @@ import { DashboardData } from './types';
  */
 
 export const fetchFromSheet = async (url: string): Promise<DashboardData | null> => {
+  console.log(`[API] Fetching from: ${url}`);
   try {
     const response = await fetch(url);
-    if (!response.ok) throw new Error('Network response was not ok');
-    const data = await response.json();
-    
+    console.log(`[API] Fetch response status: ${response.status}`);
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error(`[API] Fetch failed. Status: ${response.status}, Body: ${text}`);
+      throw new Error(`Network response was not ok: ${response.status} ${response.statusText}`);
+    }
+
+    const text = await response.text();
+    console.log(`[API] Fetch raw response:`, text.substring(0, 100) + "..."); // Log first 100 chars
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error(`[API] JSON Parse Error. Raw text: ${text}`, e);
+      throw new Error("Invalid JSON response from GAS");
+    }
+
     // Check if the returned object is empty (new sheet)
-    if (Object.keys(data).length === 0) return null;
-    
+    if (Object.keys(data).length === 0) {
+      console.log("[API] Received empty data object (New Sheet)");
+      return null;
+    }
+
     return data as DashboardData;
   } catch (error) {
-    console.error("Failed to fetch from sheet", error);
+    console.error("[API] Failed to fetch from sheet", error);
     throw error;
   }
 };
 
 export const saveToSheet = async (url: string, data: DashboardData): Promise<void> => {
+  console.log(`[API] Saving to: ${url}`);
   try {
     // Google Apps Script Web Apps require strict CORS handling.
     // often 'no-cors' mode is used for simple fire-and-forget, but for data integrity
     // standard POST with text/plain (to avoid preflight OPTIONS issues in some GAS setups) is recommended.
-    
+
     const response = await fetch(url, {
       method: 'POST',
       body: JSON.stringify(data),
       // Important: GAS handles text/plain easier without complex CORS preflight
       headers: {
-        'Content-Type': 'text/plain;charset=utf-8', 
+        'Content-Type': 'text/plain;charset=utf-8',
       },
     });
 
-    const result = await response.json();
+    console.log(`[API] Save response status: ${response.status}`);
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error(`[API] Save failed. Status: ${response.status}, Body: ${text}`);
+      throw new Error(`Save request failed: ${response.status}`);
+    }
+
+    const text = await response.text();
+    console.log(`[API] Save raw response:`, text);
+
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch (e) {
+      console.error(`[API] Save JSON Parse Error. Raw text: ${text}`, e);
+      throw new Error("Invalid JSON response from GAS save");
+    }
+
     if (result.status === 'error') {
+      console.error(`[API] GAS returned error: ${result.message}`);
       throw new Error(result.message);
     }
+    console.log("[API] Save successful");
   } catch (error) {
-    console.error("Failed to save to sheet", error);
+    console.error("[API] Failed to save to sheet", error);
     throw error;
   }
 };

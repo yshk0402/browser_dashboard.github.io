@@ -31,37 +31,37 @@ export const INITIAL_GOOGLE_LINKS: LinkItem[] = [
 ];
 
 export const INITIAL_NEWS: NewsItem[] = [
-  { 
-    id: '1', 
-    title: 'The Future of AI Software Development', 
-    url: 'https://news.ycombinator.com', 
-    source: 'Hacker News', 
-    date: '2024-03-21', 
-    category: 'Tech' 
+  {
+    id: '1',
+    title: 'The Future of AI Software Development',
+    url: 'https://news.ycombinator.com',
+    source: 'Hacker News',
+    date: '2024-03-21',
+    category: 'Tech'
   },
-  { 
-    id: '2', 
-    title: 'NVIDIA announces new Blackwell GPU architecture', 
-    url: 'https://www.theverge.com', 
-    source: 'The Verge', 
-    date: '2024-03-20', 
-    category: 'Hardware' 
+  {
+    id: '2',
+    title: 'NVIDIA announces new Blackwell GPU architecture',
+    url: 'https://www.theverge.com',
+    source: 'The Verge',
+    date: '2024-03-20',
+    category: 'Hardware'
   },
-  { 
-    id: '3', 
-    title: 'Global markets rally ahead of Fed meeting', 
-    url: 'https://www.reuters.com', 
-    source: 'Reuters', 
-    date: '2024-03-19', 
-    category: 'Finance' 
+  {
+    id: '3',
+    title: 'Global markets rally ahead of Fed meeting',
+    url: 'https://www.reuters.com',
+    source: 'Reuters',
+    date: '2024-03-19',
+    category: 'Finance'
   },
-  { 
-    id: '4', 
-    title: 'SpaceX Starship reaches orbit for the first time', 
-    url: 'https://techcrunch.com', 
-    source: 'TechCrunch', 
-    date: '2024-03-18', 
-    category: 'Space' 
+  {
+    id: '4',
+    title: 'SpaceX Starship reaches orbit for the first time',
+    url: 'https://techcrunch.com',
+    source: 'TechCrunch',
+    date: '2024-03-18',
+    category: 'Space'
   },
 ];
 
@@ -88,14 +88,14 @@ export const GAS_SCRIPT_CODE = `function doGet(e) {
       try {
         result = JSON.parse(data);
       } catch (err) {
-        result = { error: "Invalid JSON in sheet" };
+        result = { error: "Invalid JSON in sheet: " + err.toString() };
       }
     }
     
     return ContentService.createTextOutput(JSON.stringify(result))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (e) {
-    return ContentService.createTextOutput(JSON.stringify({ error: e.toString() }))
+    return ContentService.createTextOutput(JSON.stringify({ error: "Server Error: " + e.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
   } finally {
     lock.releaseLock();
@@ -111,6 +111,11 @@ function doPost(e) {
     const sheet = doc.getSheetByName('Data') || doc.insertSheet('Data');
     
     // The payload is passed as raw post data (stringified JSON)
+    // We check if e.postData exists to avoid errors if called incorrectly
+    if (!e.postData || !e.postData.contents) {
+       throw new Error("No post data received");
+    }
+
     const payload = e.postData.contents;
     
     // Save to cell A1
