@@ -1,0 +1,7 @@
+{
+  "name": "Notion-style Dashboard",
+  "description": "A minimalist personal dashboard with a habit tracker, news curation, and quick links, styled like Notion.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
