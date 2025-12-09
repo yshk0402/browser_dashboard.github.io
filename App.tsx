@@ -358,7 +358,7 @@ const App: React.FC = () => {
           </section>
 
           {/* 3. Middle Section (2 Columns Grid) */}
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 items-start">
 
             {/* Left: Googles (1/3) */}
             <div className="md:col-span-1">
