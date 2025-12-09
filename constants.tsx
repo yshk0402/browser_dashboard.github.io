@@ -74,23 +74,50 @@ export const INITIAL_STATUS_CARDS: HabitStatus[] = [
 ];
 
 // --- Google Apps Script Code for UI Display ---
-export const GAS_SCRIPT_CODE = `function doGet(e) {
+export const GAS_SCRIPT_CODE = `/**
+ * --- SETUP INSTRUCTIONS ---
+ * 1. Paste this code into Code.gs
+ * 2. Run the 'setup' function once to create sheets.
+ * 3. Deploy as Web App (Execute as: Me, Access: Anyone).
+ * 4. Set up a Trigger:
+ *    - Function: refreshNews
+ *    - Event Source: Time-driven
+ *    - Type: Hour timer (Every hour)
+ */
+
+// Configuration: Add your RSS feeds here
+const RSS_FEEDS = [
+  { url: 'https://zenn.dev/feed', source: 'Zenn', category: 'Tech' },
+  { url: 'https://qiita.com/popular-items/feed', source: 'Qiita', category: 'Tech' },
+  { url: 'https://feeds.feedburner.com/hatena/b/hotentry/it', source: 'Hatena', category: 'General' },
+  { url: 'https://www.publickey1.jp/atom.xml', source: 'Publickey', category: 'Infrastructure' }
+];
+
+function doGet(e) {
   const lock = LockService.getScriptLock();
   lock.tryLock(10000);
   
   try {
     const doc = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = doc.getSheetByName('Data') || doc.insertSheet('Data');
-    const data = sheet.getRange('A1').getValue();
+    const dataSheet = doc.getSheetByName('Data') || doc.insertSheet('Data');
+    const newsSheet = doc.getSheetByName('News') || doc.insertSheet('News');
     
-    let result = {};
-    if (data && data !== "") {
-      try {
-        result = JSON.parse(data);
-      } catch (err) {
-        result = { error: "Invalid JSON in sheet: " + err.toString() };
-      }
+    // Read User Data
+    const userDataStr = dataSheet.getRange('A1').getValue();
+    let userData = {};
+    if (userDataStr && userDataStr !== "") {
+      try { userData = JSON.parse(userDataStr); } catch (e) {}
     }
+    
+    // Read News Data
+    const newsDataStr = newsSheet.getRange('A1').getValue();
+    let newsData = [];
+    if (newsDataStr && newsDataStr !== "") {
+      try { newsData = JSON.parse(newsDataStr); } catch (e) {}
+    }
+    
+    // Merge: User Data + RSS News
+    const result = { ...userData, news: newsData };
     
     return ContentService.createTextOutput(JSON.stringify(result))
       .setMimeType(ContentService.MimeType.JSON);
@@ -110,17 +137,17 @@ function doPost(e) {
     const doc = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = doc.getSheetByName('Data') || doc.insertSheet('Data');
     
-    // The payload is passed as raw post data (stringified JSON)
-    // We check if e.postData exists to avoid errors if called incorrectly
     if (!e.postData || !e.postData.contents) {
        throw new Error("No post data received");
     }
 
-    const payload = e.postData.contents;
+    const payload = JSON.parse(e.postData.contents);
     
-    // Save to cell A1
-    sheet.getRange('A1').setValue(payload);
-    // Update timestamp in B1
+    // IMPORTANT: We do NOT save 'news' here to avoid overwriting RSS data with stale client data.
+    // The client should have stripped 'news' before sending, but we double-check.
+    delete payload.news;
+    
+    sheet.getRange('A1').setValue(JSON.stringify(payload));
     sheet.getRange('B1').setValue(new Date().toISOString());
     
     return ContentService.createTextOutput(JSON.stringify({ status: 'success' }))
@@ -132,4 +159,95 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function refreshNews() {
+  let allNews = [];
+  
+  RSS_FEEDS.forEach(feed => {
+    try {
+      const xml = UrlFetchApp.fetch(feed.url).getContentText();
+      const document = XmlService.parse(xml);
+      const root = document.getRootElement();
+      
+      let items = [];
+      const namespace = root.getNamespace();
+      
+      // Atom Feed
+      if (namespace && namespace.getURI() === 'http://www.w3.org/2005/Atom') {
+        items = root.getChildren('entry', namespace).map(entry => {
+          const title = entry.getChild('title', namespace).getText();
+          const link = entry.getChild('link', namespace).getAttribute('href').getValue();
+          const dateStr = entry.getChild('updated', namespace).getText();
+          return {
+            title: title,
+            url: link,
+            date: dateStr,
+            source: feed.source,
+            category: feed.category
+          };
+        });
+      } 
+      // RSS 2.0 / 1.0
+      else {
+        // RSS 1.0 (RDF)
+        if (root.getName() === 'RDF') {
+           const ns = root.getNamespace(); // http://purl.org/rss/1.0/
+           items = root.getChildren('item', ns).map(item => {
+             return {
+               title: item.getChild('title', ns).getText(),
+               url: item.getChild('link', ns).getText(),
+               date: item.getChild('date', XmlService.getNamespace('http://purl.org/dc/elements/1.1/')) ? item.getChild('date', XmlService.getNamespace('http://purl.org/dc/elements/1.1/')).getText() : new Date().toISOString(),
+               source: feed.source,
+               category: feed.category
+             };
+           });
+        } else {
+           // RSS 2.0
+           const channel = root.getChild('channel');
+           items = channel.getChildren('item').map(item => {
+             const pubDate = item.getChild('pubDate') ? item.getChild('pubDate').getText() : new Date().toISOString();
+             return {
+               title: item.getChild('title').getText(),
+               url: item.getChild('link').getText(),
+               date: pubDate,
+               source: feed.source,
+               category: feed.category
+             };
+           });
+        }
+      }
+      
+      allNews = allNews.concat(items);
+    } catch (e) {
+      console.log('Error fetching ' + feed.url, e);
+    }
+  });
+  
+  // Format and Sort
+  const formattedNews = allNews.map((item, index) => {
+    let dateObj = new Date(item.date);
+    if (isNaN(dateObj.getTime())) dateObj = new Date();
+    
+    return {
+      id: 'rss-' + Date.now() + '-' + index,
+      title: item.title,
+      url: item.url,
+      source: item.source,
+      date: dateObj.toISOString().split('T')[0], // YYYY-MM-DD
+      category: item.category
+    };
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 30); // Keep top 30
+    
+  const doc = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = doc.getSheetByName('News') || doc.insertSheet('News');
+  sheet.getRange('A1').setValue(JSON.stringify(formattedNews));
+  sheet.getRange('B1').setValue(new Date().toISOString());
+}
+
+function setup() {
+  const doc = SpreadsheetApp.getActiveSpreadsheet();
+  if (!doc.getSheetByName('Data')) doc.insertSheet('Data');
+  if (!doc.getSheetByName('News')) doc.insertSheet('News');
 }`;

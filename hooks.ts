@@ -1,11 +1,11 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { DashboardData } from './types';
-import { 
-  INITIAL_DEV_LINKS, 
-  INITIAL_CHAT_LINKS, 
-  INITIAL_APP_LINKS, 
-  INITIAL_GOOGLE_LINKS, 
+import {
+  INITIAL_DEV_LINKS,
+  INITIAL_CHAT_LINKS,
+  INITIAL_APP_LINKS,
+  INITIAL_GOOGLE_LINKS,
   INITIAL_NEWS
 } from './constants';
 import { fetchFromSheet, saveToSheet } from './api';
@@ -22,7 +22,7 @@ const DEFAULT_DATA: DashboardData = {
 export const useDashboardData = () => {
   // Store the Sheet URL in localStorage so we remember connection
   const [sheetUrl, setSheetUrl] = useLocalStorage<string>('dashboard_sheet_api_url', '');
-  
+
   // Main Data State
   const [data, setData] = useState<DashboardData>(DEFAULT_DATA);
   const [isLoading, setIsLoading] = useState(false);
@@ -33,7 +33,7 @@ export const useDashboardData = () => {
   // Helper to migrate old bookmark format to new news format if needed
   const migrateData = (incoming: any): DashboardData => {
     const result = { ...DEFAULT_DATA, ...incoming };
-    
+
     // 1. Handle "bookmarks" -> "news" rename
     if (incoming.bookmarks && !incoming.news) {
       // 2. Map old BookmarkItem to NewsItem if structure differs
@@ -78,19 +78,19 @@ export const useDashboardData = () => {
           window.localStorage.setItem('dashboard_data_backup', JSON.stringify(sheetData));
         } else {
           // Empty sheet, keep defaults but ready to sync
-          setIsDirty(true); 
+          setIsDirty(true);
         }
       } catch (err) {
         setError('Failed to load data from Sheet.');
         // Fallback to local
         const localBackup = window.localStorage.getItem('dashboard_data_backup');
         if (localBackup) {
-            try {
-              const parsed = JSON.parse(localBackup);
-              setData(migrateData(parsed));
-            } catch (e) {
-              setData(DEFAULT_DATA);
-            }
+          try {
+            const parsed = JSON.parse(localBackup);
+            setData(migrateData(parsed));
+          } catch (e) {
+            setData(DEFAULT_DATA);
+          }
         }
       } finally {
         setIsLoading(false);
@@ -106,12 +106,17 @@ export const useDashboardData = () => {
   const saveData = useCallback(async (newData: DashboardData) => {
     // Always save to local backup immediately
     window.localStorage.setItem('dashboard_data_backup', JSON.stringify(newData));
-    
+
     if (!sheetUrl) return;
 
     setIsSaving(true);
     try {
-      await saveToSheet(sheetUrl, newData);
+      // Create a copy and remove news (managed by server-side RSS)
+      const dataToSave = { ...newData };
+      // @ts-ignore - We intentionally strip this before sending
+      delete dataToSave.news;
+
+      await saveToSheet(sheetUrl, dataToSave);
       setIsDirty(false);
     } catch (err) {
       setError('Failed to save to Sheet.');
@@ -124,10 +129,10 @@ export const useDashboardData = () => {
   const updateData = useCallback((updater: (prev: DashboardData) => DashboardData) => {
     setData(prev => {
       const newData = updater(prev);
-      
+
       // Debounce logic
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      
+
       setIsDirty(true);
       saveTimeoutRef.current = setTimeout(() => {
         saveData(newData);
