@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LinkList } from './components/LinkList';
 import { Card, CardHeader, CardTitle, CardContent } from './components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './components/ui/Table';
 import { Badge } from './components/ui/Badge';
-import { ExternalLink, Newspaper, Settings2, X, Plus, Database, Loader2, Save, Copy, Check, FileCode, AlertCircle, Sun, Cloud, CloudRain, CloudLightning, Snowflake, CloudFog } from 'lucide-react';
+import { ExternalLink, Newspaper, Settings2, X, Plus, Database, Loader2, Save, Copy, Check, FileCode, AlertCircle, Sun, Cloud, CloudRain, CloudLightning, Snowflake, CloudFog, Search } from 'lucide-react';
 import { NewsItem, LinkItem, DashboardData } from './types';
 import { useDashboardData } from './hooks';
 import { GAS_SCRIPT_CODE } from './constants';
@@ -18,6 +18,9 @@ const HeaderWidgets = () => {
   // Weather State
   const [weather, setWeather] = useState<{ temp: number; code: number } | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
+
+  // Search State
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Clock Timer
@@ -67,6 +70,19 @@ const HeaderWidgets = () => {
     };
   }, []);
 
+  // Keyboard Shortcut for Search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = document.activeElement?.tagName;
+      if (e.key === '/' && activeTag !== 'INPUT' && activeTag !== 'TEXTAREA') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Weather Icon Helper
   const getWeatherIcon = (code: number) => {
     if (code === 0) return <Sun className="w-5 h-5 text-amber-500" />;
@@ -76,6 +92,16 @@ const HeaderWidgets = () => {
     if (code >= 71 && code <= 77) return <Snowflake className="w-5 h-5 text-sky-300" />;
     if (code >= 95 && code <= 99) return <CloudLightning className="w-5 h-5 text-purple-500" />;
     return <Cloud className="w-5 h-5 text-slate-400" />;
+  };
+
+  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const query = e.currentTarget.value;
+      if (query.trim()) {
+        window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
+        e.currentTarget.value = '';
+      }
+    }
   };
 
   return (
@@ -90,18 +116,32 @@ const HeaderWidgets = () => {
         </div>
       </div>
 
-      {/* Weather */}
-      <div className="flex items-center gap-2 mt-2 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
-        {weatherLoading ? (
-          <Loader2 className="w-4 h-4 animate-spin text-slate-300" />
-        ) : weather ? (
-          <>
-            {getWeatherIcon(weather.code)}
-            <span className="text-sm font-semibold">{weather.temp}°C</span>
-          </>
-        ) : (
-          <span className="text-xs text-slate-400">No Weather</span>
-        )}
+      <div className="flex items-center gap-3 mt-2">
+        {/* Search Bar */}
+        <div className="relative group">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-slate-600 transition-colors" />
+          <input
+            ref={searchInputRef}
+            type="text"
+            placeholder="Search... (/)"
+            className="pl-8 pr-3 py-1 text-sm bg-slate-50 border border-slate-100 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-300 w-48 transition-all placeholder:text-slate-400"
+            onKeyDown={handleSearch}
+          />
+        </div>
+
+        {/* Weather */}
+        <div className="flex items-center gap-2 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
+          {weatherLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin text-slate-300" />
+          ) : weather ? (
+            <>
+              {getWeatherIcon(weather.code)}
+              <span className="text-sm font-semibold">{weather.temp}°C</span>
+            </>
+          ) : (
+            <span className="text-xs text-slate-400">No Weather</span>
+          )}
+        </div>
       </div>
     </div>
   );
