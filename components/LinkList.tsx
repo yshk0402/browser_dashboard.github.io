@@ -19,7 +19,7 @@ const getFaviconUrl = (urlStr: string) => {
   }
 };
 
-export const LinkList: React.FC<LinkListProps> = ({ title, items, isEditing, onUpdate }) => {
+export const LinkList: React.FC<LinkListProps & { autoHeight?: boolean }> = ({ title, items, isEditing, onUpdate, autoHeight = false }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newItem, setNewItem] = useState({ name: '', url: '' });
 
@@ -38,7 +38,7 @@ export const LinkList: React.FC<LinkListProps> = ({ title, items, isEditing, onU
   };
 
   return (
-    <Card className="h-full border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col">
+    <Card className={`${autoHeight ? '' : 'h-full'} border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col`}>
       <CardHeader className="pb-3 flex-none">
         <CardTitle className="text-lg font-medium text-slate-700 flex justify-between items-center">
           {title}
@@ -51,14 +51,13 @@ export const LinkList: React.FC<LinkListProps> = ({ title, items, isEditing, onU
               href={isEditing ? undefined : item.url}
               target={isEditing ? undefined : "_blank"}
               rel="noopener noreferrer"
-              className={`flex-1 flex items-center gap-3 p-2 rounded-md transition-all ${
-                isEditing ? 'bg-slate-50 cursor-default opacity-80' : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'
-              }`}
+              className={`flex-1 flex items-center gap-3 p-2 rounded-md transition-all ${isEditing ? 'bg-slate-50 cursor-default opacity-80' : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'
+                }`}
               onClick={(e) => isEditing && e.preventDefault()}
             >
-              <img 
-                src={getFaviconUrl(item.url)} 
-                alt={item.name} 
+              <img
+                src={getFaviconUrl(item.url)}
+                alt={item.name}
                 className="h-4 w-4 rounded-sm"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = 'none';

@@ -362,7 +362,7 @@ const App: React.FC = () => {
 
             {/* Left: Googles (1/3) */}
             <div className="md:col-span-1">
-              <LinkList title="Googles" items={data.googleLinks} isEditing={isEditing} onUpdate={(items) => updateLinkSection('googleLinks', items)} />
+              <LinkList title="Googles" items={data.googleLinks} isEditing={isEditing} onUpdate={(items) => updateLinkSection('googleLinks', items)} autoHeight={true} />
             </div>
 
             {/* Right: News Curation (2/3) */}
